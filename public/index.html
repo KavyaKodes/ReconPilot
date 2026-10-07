@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReconPilot</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+<style>
+:root{--ink:#14202b;--paper:#eef1f4;--panel:#fff;--line:#d5dbe2;--blue:#0b5fff;--red:#c8372d;--redbg:#fdecea;--muted:#5b6a78}
+@media(prefers-color-scheme:dark){:root{--ink:#e8edf2;--paper:#10161c;--panel:#18212a;--line:#2b3744;--blue:#6b9cff;--red:#ff7a70;--redbg:#3a1f1f;--muted:#93a3b2}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font:15px/1.5 'IBM Plex Sans',system-ui,sans-serif;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;padding:20px;gap:14px}
+h1{font:600 28px/1.1 Fraunces,Georgia,serif;margin:0}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+#src{color:var(--muted);font-size:13px}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1;min-width:240px;padding:11px 14px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit}
+button{padding:11px 16px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:500 14px inherit;cursor:pointer}
+button.go{background:var(--blue);border-color:var(--blue);color:#fff}
+button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#note{min-height:22px;color:var(--muted)}
+#summary{display:none;padding:12px 14px;border-left:4px solid var(--red);background:var(--redbg);border-radius:4px;white-space:pre-wrap}
+#grid{flex:1;min-height:360px}
+.ag-theme-quartz{--ag-font-family:'IBM Plex Sans',sans-serif;--ag-border-radius:6px}
+.flagged{background:var(--redbg)!important}
+</style></head>
+<body>
+<header><h1>ReconPilot</h1><span id="src"></span></header>
+<form class="bar" id="askf"><input id="q" aria-label="Ask about your transactions" placeholder='Ask in plain language, e.g. "refunds over $100" or "fees above 5%"' autocomplete="off">
+<button class="go">Filter grid</button></form>
+<div class="bar"><button id="scan">Scan for problems</button><button id="flagged">Show flagged only</button><button id="clear">Clear filters</button><button id="export">Export flagged as CSV</button></div>
+<div id="note" role="status"></div><div id="summary"></div>
+<div id="grid" class="ag-theme-quartz"></div>
+<script>
+const $=s=>document.querySelector(s); let api;
+const money=p=>p.value==null?'':p.value.toLocaleString('en-US',{style:'currency',currency:'USD'});
+const cols=[{field:'date',headerName:'Date',filter:'agTextColumnFilter',valueFormatter:p=>p.value.slice(0,16).replace('T',' '),width:160},
+{field:'id',headerName:'ID',width:110},{field:'customer',headerName:'Customer',filter:'agTextColumnFilter'},
+{field:'type',headerName:'Type',filter:'agTextColumnFilter',width:100},{field:'status',headerName:'Status',filter:'agTextColumnFilter',width:110},
+{field:'amount',headerName:'Amount',filter:'agNumberColumnFilter',valueFormatter:money,type:'rightAligned',width:120},
+{field:'fee',headerName:'Fee',filter:'agNumberColumnFilter',valueFormatter:money,type:'rightAligned',width:100},
+{field:'feePct',headerName:'Fee %',filter:'agNumberColumnFilter',type:'rightAligned',width:100},
+{field:'orderId',headerName:'Order',width:110},
+{field:'flag',headerName:'Problem found',filter:'agTextColumnFilter',flex:1,minWidth:260,tooltipField:'flag',cellStyle:p=>p.value?{color:'var(--red)',fontWeight:600}:null}];
+fetch('/api/transactions').then(r=>r.json()).then(d=>{
+  $('#src').textContent=(d.source==='paypal-sandbox'?'Live PayPal sandbox data':'Demo data (add PayPal credentials for live sandbox data)')+(d.ai?'':' | AI offline: add ANTHROPIC_API_KEY');
+  api=agGrid.createGrid($('#grid'),{columnDefs:cols,rowData:d.transactions,defaultColDef:{sortable:true,filter:true,resizable:true},
+    rowClassRules:{flagged:p=>!!p.data.flag},tooltipShowDelay:200,animateRows:true});
+});
+const ops={equals:'equals',contains:'contains',greaterThan:'greaterThan',lessThan:'lessThan'};
+function applyFilters(list){ // convert AI tool output to AG Grid filter model
+  const model={},by={};
+  for(const f of list) (by[f.column]=by[f.column]||[]).push(f);
+  for(const [col,fs] of Object.entries(by)){
+    const num=['amount','fee','feePct'].includes(col), text=['type','status','customer','flag'].includes(col);
+    const mk=f=>({filterType:num?'number':'text',type:ops[f.operator],filter:num?Number(f.value):String(f.value)});
+    if(!num&&!text) continue;
+    model[col]=fs.length===1?mk(fs[0]):{filterType:num?'number':'text',operator:'AND',conditions:fs.slice(0,2).map(mk)};
+  }
+  api.setFilterModel(null); api.setFilterModel(model);
+}
+$('#askf').onsubmit=async e=>{e.preventDefault();const q=$('#q').value.trim();if(!q)return;$('#note').textContent='Thinking...';
+  const r=await (await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q})})).json();
+  applyFilters(r.filters||[]);$('#note').textContent=r.reply||'';};
+$('#clear').onclick=()=>{api.setFilterModel(null);$('#note').textContent='Filters cleared.'};
+$('#flagged').onclick=()=>{applyFilters([{column:'flag',operator:'contains',value:''}]);api.setFilterModel({flag:{filterType:'text',type:'notBlank'}});$('#note').textContent='Showing flagged transactions only.'};
+$('#scan').onclick=async()=>{$('#summary').style.display='block';$('#summary').textContent='Scanning...';
+  const r=await (await fetch('/api/scan')).json();$('#summary').textContent=r.summary;};
+$('#export').onclick=()=>api.exportDataAsCsv({fileName:'reconpilot-flagged.csv',shouldRowBeSkipped:p=>!p.node.data.flag});
+</script></body></html>
