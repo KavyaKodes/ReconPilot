@@ -25,4 +25,15 @@ async function fetchTransactions() {
       orderId: i.invoice_id || i.paypal_reference_id || i.transaction_id };
   });
 }
-module.exports = { fetchTransactions };
+// Creates a DRAFT invoice (nothing is sent to the customer) to recover money from a bad refund.
+async function createRecoveryInvoice({ customer, amount, note }) {
+  const t = await token();
+  const body = { detail: { currency_code: 'USD', note },
+    primary_recipients: [{ billing_info: { name: { full_name: customer }, email_address: 'customer@example.com' } }],
+    items: [{ name: 'Refund recovery', description: note, quantity: '1', unit_amount: { currency_code: 'USD', value: amount.toFixed(2) } }] };
+  const res = await fetch(BASE + '/v2/invoicing/invoices', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error('PayPal invoice failed: ' + res.status + ' ' + (await res.text()).slice(0, 300));
+  const data = await res.json();
+  return { id: String(data.href || '').split('/').pop(), href: data.href };
+}
+module.exports = { fetchTransactions, createRecoveryInvoice };
