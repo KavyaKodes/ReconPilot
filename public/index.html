@@ -38,10 +38,10 @@ const cols=[{field:'date',headerName:'Date',filter:'agTextColumnFilter',valueFor
 {field:'amount',headerName:'Amount',filter:'agNumberColumnFilter',valueFormatter:money,type:'rightAligned',width:120},
 {field:'fee',headerName:'Fee',filter:'agNumberColumnFilter',valueFormatter:money,type:'rightAligned',width:100},
 {field:'feePct',headerName:'Fee %',filter:'agNumberColumnFilter',type:'rightAligned',width:100},
-{field:'orderId',headerName:'Order',width:110},
+{field:'orderId',headerName:'Order',width:110},{field:'origin',headerName:'Source',filter:'agTextColumnFilter',width:140},
 {field:'flag',headerName:'Problem found',filter:'agTextColumnFilter',flex:1,minWidth:260,tooltipField:'flag',cellStyle:p=>p.value?{color:'var(--red)',fontWeight:600}:null}];
 fetch('/api/transactions').then(r=>r.json()).then(d=>{
-  $('#src').textContent=(d.source==='paypal-sandbox'?'Live PayPal sandbox data':'Demo data (add PayPal credentials for live sandbox data)')+(d.ai?'':' | AI offline: add ANTHROPIC_API_KEY');
+  $('#src').textContent=(d.source==='paypal-sandbox'?'Live PayPal sandbox transactions + demo ledger (see Source column)':'Demo data (add PayPal credentials for live sandbox data)')+(d.ai?'':' | AI offline: add ANTHROPIC_API_KEY');
   api=agGrid.createGrid($('#grid'),{columnDefs:cols,rowData:d.transactions,defaultColDef:{sortable:true,filter:true,resizable:true},
     rowClassRules:{flagged:p=>!!p.data.flag},tooltipShowDelay:200,animateRows:true});
 });
