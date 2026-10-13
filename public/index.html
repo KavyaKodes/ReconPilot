@@ -26,7 +26,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-o
 <header><h1>ReconPilot</h1><span id="src"></span></header>
 <form class="bar" id="askf"><input id="q" aria-label="Ask about your transactions" placeholder='Ask in plain language, e.g. "refunds over $100" or "fees above 5%"' autocomplete="off">
 <button class="go">Filter grid</button></form>
-<div class="bar"><button id="scan">Scan for problems</button><button id="flagged">Show flagged only</button><button id="clear">Clear filters</button><button id="export">Export flagged as CSV</button></div>
+<div class="bar"><button id="scan">Scan for problems</button><button id="flagged">Show flagged only</button><button id="clear">Clear filters</button><button id="recover">Draft PayPal recovery invoice (click a red refund row first)</button><button id="export">Export flagged as CSV</button></div>
 <div id="note" role="status"></div><div id="summary"></div>
 <div id="grid" class="ag-theme-quartz"></div>
 <script>
@@ -43,7 +43,7 @@ const cols=[{field:'date',headerName:'Date',filter:'agTextColumnFilter',valueFor
 fetch('/api/transactions').then(r=>r.json()).then(d=>{
   $('#src').textContent=(d.source==='paypal-sandbox'?'Live PayPal sandbox transactions + demo ledger (see Source column)':'Demo data (add PayPal credentials for live sandbox data)')+(d.ai?'':' | AI offline: add ANTHROPIC_API_KEY');
   api=agGrid.createGrid($('#grid'),{columnDefs:cols,rowData:d.transactions,defaultColDef:{sortable:true,filter:true,resizable:true},
-    rowClassRules:{flagged:p=>!!p.data.flag},tooltipShowDelay:200,animateRows:true});
+    rowClassRules:{flagged:p=>!!p.data.flag},rowSelection:'single',tooltipShowDelay:200,animateRows:true});
 });
 const ops={equals:'equals',contains:'contains',greaterThan:'greaterThan',lessThan:'lessThan'};
 function applyFilters(list){ // convert AI tool output to AG Grid filter model
@@ -64,5 +64,8 @@ $('#clear').onclick=()=>{api.setFilterModel(null);$('#note').textContent='Filter
 $('#flagged').onclick=()=>{applyFilters([{column:'flag',operator:'contains',value:''}]);api.setFilterModel({flag:{filterType:'text',type:'notBlank'}});$('#note').textContent='Showing flagged transactions only.'};
 $('#scan').onclick=async()=>{$('#summary').style.display='block';$('#summary').textContent='Scanning...';
   const r=await (await fetch('/api/scan')).json();$('#summary').textContent=r.summary;};
+$('#recover').onclick=async()=>{const row=api.getSelectedRows()[0];if(!row){$('#note').textContent='Click a red refund row first.';return}
+  $('#note').textContent='Creating draft invoice in PayPal sandbox...';
+  const r=await (await fetch('/api/recover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:row.id})})).json();$('#note').textContent=r.message;};
 $('#export').onclick=()=>api.exportDataAsCsv({fileName:'reconpilot-flagged.csv',shouldRowBeSkipped:p=>!p.node.data.flag});
 </script></body></html>
