@@ -23,4 +23,15 @@ app.get('/api/scan', async (req, res) => {
   if (hasAI() && Object.keys(d.flags).length) { try { summary = await ai.summarize(d.tx, d.flags); } catch (e) { console.error(e.message); } }
   res.json({ count: Object.keys(d.flags).length, summary });
 });
+app.post('/api/recover', async (req, res) => {
+  const d = await load(), t = d.tx.find(x => x.id === req.body.id);
+  if (!t || t.type !== 'Refund' || !t.flag) return res.json({ ok: false, message: 'Click a flagged refund row first (red row, Type = Refund).' });
+  const sale = d.tx.find(x => x.type === 'Sale' && x.orderId === t.orderId);
+  const amount = sale ? Math.abs(t.amount) - sale.amount : Math.abs(t.amount);
+  if (!(amount > 0)) return res.json({ ok: false, message: 'No money to recover on this row.' });
+  const note = `Recovery of $${amount.toFixed(2)} from refund ${t.id}: ${t.flag}`;
+  if (!hasPayPal()) return res.json({ ok: true, demo: true, message: `No PayPal keys: would draft a $${amount.toFixed(2)} invoice for ${t.customer}.` });
+  try { const inv = await paypal.createRecoveryInvoice({ customer: t.customer, amount, note }); res.json({ ok: true, message: `Draft PayPal invoice created for ${t.customer}: $${amount.toFixed(2)} (invoice ${inv.id}). Find it in your sandbox business account under Invoices.` }); }
+  catch (e) { console.error(e.message); if (/ 403 /.test(e.message)) return res.json({ ok: true, demo: true, message: `Invoice preview (not created): $${amount.toFixed(2)} to ${t.customer}. Reason: ${t.flag}. PayPal returned 403, so this app has no Invoicing permission yet; with it enabled the same click creates a real draft invoice.` }); res.json({ ok: false, message: 'PayPal could not create the invoice. Check that Invoicing is enabled on your sandbox app. ' + e.message.slice(0, 150) }); }
+});
 app.listen(process.env.PORT || 3000, () => console.log('ReconPilot on http://localhost:' + (process.env.PORT || 3000)));
