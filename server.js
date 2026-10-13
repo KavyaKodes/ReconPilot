@@ -7,8 +7,8 @@ const hasAI = () => !!ai.provider();
 let cache = null;
 async function load(force) {
   if (cache && !force) return cache;
-  let tx = seed(), source = 'demo';
-  if (hasPayPal()) { try { const live = await paypal.fetchTransactions(); if (live.length) { tx = live; source = 'paypal-sandbox'; } } catch (e) { console.error(e.message); } }
+  let tx = seed().map(t => ({ ...t, origin: 'Demo' })), source = 'demo';
+  if (hasPayPal()) { try { const live = await paypal.fetchTransactions(); if (live.length) { tx = live.map(t => ({ ...t, origin: 'PayPal sandbox' })).concat(tx).sort((a, b) => a.date.localeCompare(b.date)); source = 'paypal-sandbox'; } } catch (e) { console.error(e.message); } }
   const flags = scan(tx);
   tx = tx.map(t => ({ ...t, feePct: t.type === 'Sale' && t.amount > 0 ? +(t.fee / t.amount * 100).toFixed(2) : 0, flag: flags[t.id] || '' }));
   return (cache = { tx, flags, source });
