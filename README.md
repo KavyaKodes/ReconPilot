@@ -17,6 +17,7 @@ A new PayPal sandbox account has very few transactions, so the grid shows your r
 - **AG Grid Community (MIT):** transactions grid, filters, row styling, CSV export.
 - **Node.js and Express:** backend that keeps API keys off the browser.
 - **Antigravity:** AI coding editor used during development.
+- **AI assistance:** parts of the code were written with AI coding assistants (Claude and Gemini).
 
 ## Run locally
 1. Install Node.js (LTS) from nodejs.org.
@@ -32,6 +33,8 @@ npm start
 5. Open http://localhost:3000
 
 Without any keys the app still runs on the demo ledger with a keyword-based filter fallback. Add `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (a sandbox app with Transaction Search enabled, and Invoicing for the recovery invoice) for live sandbox data. Add `GEMINI_API_KEY` (free from aistudio.google.com) for the AI features.
+
+For the AI features, get a free Gemini key at aistudio.google.com and put it in .env as GEMINI_API_KEY. Without it, the app still runs with simple keyword filters.
 
 ## License
 MIT
