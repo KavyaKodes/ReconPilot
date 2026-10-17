@@ -5,7 +5,7 @@ An AI reconciliation copilot for PayPal sellers. It pulls PayPal sandbox transac
 ## What it does
 - **Ask your grid:** type "refunds over $100" or "fees above 5%". The model calls an `apply_filters` tool and the app turns the result into AG Grid filter models.
 - **Scan for problems:** deterministic rules flag issues, then the AI summarises them, estimates the money at risk and says what to fix first.
-- **Recovery invoice:** click a flagged refund and the app calls the PayPal Invoicing API to draft an invoice for the money to recover. If the sandbox app lacks the Invoicing permission, it shows a preview and says nothing was created.
+- **Recovery invoice:** click a flagged refund and ReconPilot calls the PayPal Invoicing API to create a draft invoice in the PayPal sandbox for the money to recover. It is only a draft, so nothing is sent to the customer.
 - **Export:** download only the flagged rows as CSV for your accountant.
 
 ## About the data
